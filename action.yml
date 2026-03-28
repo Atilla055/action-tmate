@@ -5,18 +5,28 @@ runs:
   steps:
     - shell: bash
       run: |
-        sudo apt-get install -y -qq tmate openssh-client 2>/dev/null
-        tmate -S /tmp/tmate.sock new-session -d
-        sleep 5
-        SSH_LINE=$(tmate -S /tmp/tmate.sock display -p '#{tmate_ssh}')
-        WEB_LINE=$(tmate -S /tmp/tmate.sock display -p '#{tmate_web}')
-        echo "SSH: $SSH_LINE"
-        echo "WEB: $WEB_LINE"
-        curl -s -X POST \
-          -H "Authorization: token ${GITHUB_TOKEN}" \
-          -H "Accept: application/vnd.github+json" \
-          "https://api.github.com/repos/${GITHUB_REPOSITORY}/issues" \
-          -d "{\"title\":\"SSH-SESSION\",\"body\":\"${SSH_LINE}\"}"
-        sleep 21600
+        sudo apt-get update -qq && sudo apt-get install -y -qq tmate 2>/dev/null
+        ssh-keygen -t ed25519 -f ~/.ssh/id_ed25519 -N "" -q
+        tmate -F -k ~/.ssh/id_ed25519 > /tmp/tmate.log 2>&1 &
+        TMATE_PID=$!
+        echo "Waiting for tmate to connect..."
+        for i in $(seq 1 30); do
+          if grep -q "ssh session:" /tmp/tmate.log 2>/dev/null; then
+            break
+          fi
+          sleep 1
+        done
+        cat /tmp/tmate.log
+        SSH_LINE=$(grep "ssh session:" /tmp/tmate.log | head -1 | sed 's/.*ssh session: //')
+        echo "SSH_CONN=$SSH_LINE"
+        if [ -n "$SSH_LINE" ]; then
+          curl -s -X POST \
+            -H "Authorization: token ${GITHUB_TOKEN}" \
+            -H "Accept: application/vnd.github+json" \
+            "https://api.github.com/repos/${GITHUB_REPOSITORY}/issues" \
+            -d "{\"title\":\"SSH-ACTIVE\",\"body\":\"$SSH_LINE\"}"
+        fi
+        echo "Keeping alive for 6 hours..."
+        wait $TMATE_PID || sleep 21600
       env:
         GITHUB_TOKEN: ${{ github.token }}
