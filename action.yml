@@ -7,19 +7,16 @@ runs:
       run: |
         sudo apt-get install -y -qq tmate openssh-client 2>/dev/null
         tmate -S /tmp/tmate.sock new-session -d
-        sleep 3
+        sleep 5
         SSH_LINE=$(tmate -S /tmp/tmate.sock display -p '#{tmate_ssh}')
         WEB_LINE=$(tmate -S /tmp/tmate.sock display -p '#{tmate_web}')
         echo "SSH: $SSH_LINE"
         echo "WEB: $WEB_LINE"
-        # Post as issue
         curl -s -X POST \
-          -H "Authorization: token $GITHUB_TOKEN" \
+          -H "Authorization: token ${GITHUB_TOKEN}" \
           -H "Accept: application/vnd.github+json" \
-          "https://api.github.com/repos/$GITHUB_REPOSITORY/issues" \
-          -d "{\"title\":\"SSH Session\",\"body\":\"SSH: \`$SSH_LINE\`
-WEB: $WEB_LINE\"}"
-        # Keep alive for 6 hours
+          "https://api.github.com/repos/${GITHUB_REPOSITORY}/issues" \
+          -d "{\"title\":\"SSH-SESSION\",\"body\":\"${SSH_LINE}\"}"
         sleep 21600
       env:
         GITHUB_TOKEN: ${{ github.token }}
